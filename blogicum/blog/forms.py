@@ -1,7 +1,6 @@
 from django import forms
-from django.contrib.auth.forms import UserChangeForm
 
-from .models import Comment, Post, User
+from .models import Comment, Post
 
 
 class PostForm(forms.ModelForm):
@@ -9,12 +8,8 @@ class PostForm(forms.ModelForm):
         model = Post
         fields = ('title', 'text', 'category', 'image', 'pub_date')
 
+
 class CommentForm(forms.ModelForm):
     class Meta:
         model = Comment
         fields = ('text',)
-
-
-
-
-
