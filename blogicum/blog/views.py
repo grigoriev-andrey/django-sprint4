@@ -1,6 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
+from django.db.models import Count
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -10,18 +11,21 @@ from .constants import POSTS_PER_PAGE
 from .forms import CommentForm, PostForm
 from .models import Category, Comment, Post
 
-
+#TODO воркаем тут
 def get_published_posts(queryset):
     queryset = queryset.filter(
         pub_date__lte=timezone.now(),
         is_published=True,
         category__is_published=True
-    ).select_related('category', 'location', 'author')
+    ).select_related(
+        'category', 'author'
+    ).annotate(comment_count=Count('comments'))
+
     return queryset
 
 
 def index(request):
-    post_list = get_published_posts(Post.objects)[:POSTS_PER_PAGE]
+    post_list = get_published_posts(Post.objects).order_by('-pub_date')
 
     paginator = Paginator(post_list, POSTS_PER_PAGE)
     page_number = request.GET.get('page')
@@ -120,6 +124,10 @@ def add_comment(request, id):
             return redirect('blog:post_detail', id=id)
     else:
         form = CommentForm()
+
+    if request.method == 'POST' and not post.pub_date >= timezone.now():
+        return redirect('blog:post_detail', id=id)
+
     context = {'form': form}
     return render(request, 'blog/comment.html', context)
 
@@ -168,7 +176,7 @@ def category_posts(request, category_slug):
         is_published=True
     )
 
-    post_list = get_published_posts(category.posts)
+    post_list = get_published_posts(category.posts).order_by('-pub_date')
 
     paginator = Paginator(post_list, POSTS_PER_PAGE)
     page_number = request.GET.get('page')
@@ -190,14 +198,14 @@ def profile(request, username):
     if request.user == profile:
         post_list = Post.objects.filter(
             author=profile
-        ).order_by('-pub_date')
+        ).annotate(comment_count=Count('comments')).order_by('-pub_date')
     else:
         post_list = Post.objects.filter(
             author=profile,
             is_published=True,
             category__is_published=True,
             pub_date__lte=timezone.now(),
-        ).order_by('-pub_date')
+        ).annotate(comment_count=Count('comments')).order_by('-pub_date')
 
     paginator = Paginator(post_list, POSTS_PER_PAGE)
     page_number = request.GET.get('page')

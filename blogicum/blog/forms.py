@@ -1,3 +1,4 @@
+from attr.filters import exclude
 from django import forms
 
 from .models import Comment, Post
@@ -6,7 +7,7 @@ from .models import Comment, Post
 class PostForm(forms.ModelForm):
     class Meta:
         model = Post
-        fields = ('title', 'text', 'category', 'image', 'pub_date')
+        exclude = ('author', 'location',)
 
 
 class CommentForm(forms.ModelForm):

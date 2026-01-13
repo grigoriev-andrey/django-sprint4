@@ -90,10 +90,6 @@ class Post(PublishedModel):
         verbose_name='Изображение'
     )
 
-    @property
-    def comment_count(self):
-        return self.comments.count()
-
     class Meta:
         ordering = ('-pub_date',)
         verbose_name = 'публикация'
