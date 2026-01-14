@@ -10,26 +10,13 @@ from users.forms import UserEditForm
 from .constants import POSTS_PER_PAGE
 from .forms import CommentForm, PostForm
 from .models import Category, Comment, Post
-
-#TODO воркаем тут
-def get_published_posts(queryset):
-    queryset = queryset.filter(
-        pub_date__lte=timezone.now(),
-        is_published=True,
-        category__is_published=True
-    ).select_related(
-        'category', 'author'
-    ).annotate(comment_count=Count('comments'))
-
-    return queryset
+from .utils import get_published_posts, paginate_queryset
 
 
 def index(request):
     post_list = get_published_posts(Post.objects).order_by('-pub_date')
 
-    paginator = Paginator(post_list, POSTS_PER_PAGE)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page_obj = paginate_queryset(post_list, request, POSTS_PER_PAGE)
 
     context = {
         'page_obj': page_obj,
@@ -42,16 +29,9 @@ def post_detail(request, id):
     comments = post.comments.order_by('created_at')
     form = CommentForm()
 
-    if not post.is_published:
-        if post.author != request.user:
-            raise Http404()
-
-    if post.pub_date > timezone.now():
-        if post.author != request.user:
-            raise Http404()
-
-    if post.category and not post.category.is_published:
-        if post.author != request.user:
+    if post.author != request.user:
+        # автор видит черновики постов, а остальные только опубликованные записи
+        if not get_published_posts(Post.objects).filter(pk=post.pk).exists():
             raise Http404()
 
     context = {
@@ -64,23 +44,20 @@ def post_detail(request, id):
 
 @login_required
 def create_post(request):
-    if request.method == 'POST':
-        form = PostForm(request.POST, request.FILES)
-        if form.is_valid():
-            post = form.save(commit=False)
-            if not post.pub_date:
-                post.pub_date = timezone.now()
-            post.author = request.user
-            post.save()
-            return redirect('blog:profile', username=request.user.username)
-    else:
-        form = PostForm()
+    form = PostForm(request.POST or None, request.FILES or None)
+    if request.method == 'POST' and form.is_valid():
+        post = form.save(commit=False)
+        if not post.pub_date:
+            post.pub_date = timezone.now()
+        post.author = request.user
+        post.save()
+        return redirect('blog:profile', username=request.user.username)
 
     context = {'form': form}
     return render(request, 'blog/create.html', context)
 
 
-@login_required(login_url='/auth/login/')
+@login_required
 def edit_post(request, id):
     post = get_object_or_404(Post, pk=id)
 
@@ -178,9 +155,7 @@ def category_posts(request, category_slug):
 
     post_list = get_published_posts(category.posts).order_by('-pub_date')
 
-    paginator = Paginator(post_list, POSTS_PER_PAGE)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page_obj = paginate_queryset(post_list, request, POSTS_PER_PAGE)
 
     context = {
         'category': category,
@@ -196,10 +171,12 @@ def user_detail(request):
 def profile(request, username):
     profile = get_object_or_404(User, username=username)
     if request.user == profile:
+        # владелец профиля видит все свои записи включая черновики
         post_list = Post.objects.filter(
             author=profile
         ).annotate(comment_count=Count('comments')).order_by('-pub_date')
     else:
+        # гости профиля видят только опубликованные записи с учетом даты и категории
         post_list = Post.objects.filter(
             author=profile,
             is_published=True,
@@ -207,9 +184,7 @@ def profile(request, username):
             pub_date__lte=timezone.now(),
         ).annotate(comment_count=Count('comments')).order_by('-pub_date')
 
-    paginator = Paginator(post_list, POSTS_PER_PAGE)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page_obj = paginate_queryset(post_list, request, POSTS_PER_PAGE)
 
     context = {
         'profile': profile,
