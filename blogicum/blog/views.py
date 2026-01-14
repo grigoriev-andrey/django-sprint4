@@ -1,6 +1,5 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.core.paginator import Paginator
 from django.db.models import Count
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -30,8 +29,11 @@ def post_detail(request, id):
     form = CommentForm()
 
     if post.author != request.user:
-        # автор видит черновики постов, а остальные только опубликованные записи
-        if not get_published_posts(Post.objects).filter(pk=post.pk).exists():
+        # автор видит черновики постов, а остальные только опубликованные
+        # записи
+        if not get_published_posts(
+                Post.objects
+        ).filter(pk=post.pk).exists():
             raise Http404()
 
     context = {
@@ -174,9 +176,12 @@ def profile(request, username):
         # владелец профиля видит все свои записи включая черновики
         post_list = Post.objects.filter(
             author=profile
-        ).annotate(comment_count=Count('comments')).order_by('-pub_date')
+        ).annotate(
+            comment_count=Count('comments')
+        ).order_by('-pub_date')
     else:
-        # гости профиля видят только опубликованные записи с учетом даты и категории
+        # гости профиля видят только опубликованные записи с учетом даты и
+        # категории
         post_list = Post.objects.filter(
             author=profile,
             is_published=True,
