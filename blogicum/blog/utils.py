@@ -3,7 +3,6 @@ from django.db.models import Count
 from django.utils import timezone
 
 
-#TODO воркаем тут
 def get_published_posts(queryset, with_comments=False):
     queryset = queryset.filter(
         pub_date__lte=timezone.now(),

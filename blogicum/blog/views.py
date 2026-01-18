@@ -13,7 +13,9 @@ from .utils import get_published_posts, paginate_queryset
 
 
 def index(request):
-    post_list = get_published_posts(Post.objects).order_by('-pub_date')
+    post_list = get_published_posts(Post.objects, with_comments=True).order_by(
+        '-pub_date'
+    )
 
     page_obj = paginate_queryset(post_list, request, POSTS_PER_PAGE)
 
@@ -90,19 +92,17 @@ def delete_post(request, id):
 @login_required
 def add_comment(request, id):
     post = get_object_or_404(
-        get_published_posts(Post.objects),
+        get_published_posts(Post.objects, with_comments=True),
         pk=id
     )
     if request.method == 'POST':
-        form = CommentForm(request.POST)
+        form = CommentForm(request.POST or None, request.FILES or None)
         if form.is_valid():
             comment = form.save(commit=False)
             comment.author = request.user
             comment.post = post
             comment.save()
             return redirect('blog:post_detail', id=id)
-    else:
-        form = CommentForm()
 
     if request.method == 'POST' and not post.pub_date >= timezone.now():
         return redirect('blog:post_detail', id=id)
@@ -155,7 +155,10 @@ def category_posts(request, category_slug):
         is_published=True
     )
 
-    post_list = get_published_posts(category.posts).order_by('-pub_date')
+    post_list = get_published_posts(
+        category.posts,
+        with_comments=True
+    ).order_by('-pub_date')
 
     page_obj = paginate_queryset(post_list, request, POSTS_PER_PAGE)
 

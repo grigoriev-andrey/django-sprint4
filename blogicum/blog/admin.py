@@ -31,6 +31,7 @@ class LocationAdmin(admin.ModelAdmin):
     list_editable = (
     )
 
+
 class CommentAdmin(admin.ModelAdmin):
     list_display = (
         'post',
