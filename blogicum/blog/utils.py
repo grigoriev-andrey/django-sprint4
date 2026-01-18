@@ -3,14 +3,18 @@ from django.db.models import Count
 from django.utils import timezone
 
 
-def get_published_posts(queryset):
+#TODO воркаем тут
+def get_published_posts(queryset, with_comments=False):
     queryset = queryset.filter(
         pub_date__lte=timezone.now(),
         is_published=True,
         category__is_published=True
     ).select_related(
         'category', 'author'
-    ).annotate(comment_count=Count('comments'))
+    )
+
+    if with_comments:
+        queryset = queryset.annotate(comment_count=Count('comments'))
 
     return queryset
 
